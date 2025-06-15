@@ -1,1 +1,1 @@
-# gift-tree-calculator
+# Gift Tree profit probabilities calculator and visualizer
