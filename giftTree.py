@@ -1,0 +1,231 @@
+"""
+Utilities for calculating and displaying gift tree profits.
+"""
+
+import numpy as np
+
+# import plotly.graph_objects as go
+# import base64
+
+# from pathlib import Path
+
+
+class gift_tree:
+
+    # Possible outcomes for the number of gift fruit that can occur from a single tree
+    fruit_values = [2, 3, 4, 5]
+
+    # Probability of each outcome
+    fruit_prob = 0.25
+
+    # Cost of selling a single gift tree fruit
+    gift_tree_fruit_sell_price = 0.7e6
+
+    def __init__(self, n_trees: int, cost_per_tree: float = 1.9e6):
+        self.n_trees = n_trees
+        self.cost_per_tree = cost_per_tree
+
+    def compute_profit_probability(self):
+        """
+        Compute the probability of making a profit after harvesting n gift trees.
+
+        Returns:
+        - prob_of_profit (float): Probability of making a profit.
+        - fruits (np.ndarray): Total fruit count values (x-axis of PMF).
+        - pmf (np.ndarray): Probability mass function values for each total fruit count.
+        - profits (np.ndarray): Corresponding profit values.
+        """
+
+        # PMF for a single tree
+        single_event_pmf = np.zeros(max(self.fruit_values) + 1)
+        for val in self.fruit_values:
+            single_event_pmf[val] = self.fruit_prob
+
+        # Convolve the single-event PMF for n_trees to get the PMF for all possible total fruits
+        pmf = single_event_pmf
+        for _ in range(self.n_trees - 1):
+            pmf = np.convolve(pmf, single_event_pmf)
+
+        # Compute total cost, revenues, and profits
+        total_cost = self.n_trees * self.cost_per_tree
+        fruits = np.arange(len(pmf))
+        revenues = fruits * self.gift_tree_fruit_sell_price
+        profits = revenues - total_cost
+
+        # Calculate the probability of profit
+        prob_of_profit = np.sum(pmf[profits > 0])
+
+        # Update profits/pmf/fruits to remove the unrealistic values, since the range encomposed
+        # all possible fruit values, but we only care about the ones that are realistic
+        min_total_fruit = self.n_trees * min(self.fruit_values)
+        remove_count = sum(x < min_total_fruit for x in fruits)
+        fruits = fruits[remove_count:]
+        profits = profits[remove_count:]
+        pmf = pmf[remove_count:]
+
+        return prob_of_profit, fruits, pmf, profits
+
+    def get_min(self, profits: np.array) -> dict:
+        """
+        Calculate the minimum of the profits.
+
+        Parameters:
+        - profits: np.ndarray
+            Array of profit values.
+
+        Returns:
+        - float:
+            The minimum profit value.
+        """
+
+        return profits.min()
+
+    def get_max(self, profits: np.array) -> dict:
+        """
+        Calculate the maximum of the profits.
+
+        Parameters:
+        - profits: np.ndarray
+            Array of profit values.
+
+        Returns:
+        - float:
+            The maximum profit value.
+        """
+
+        return profits.max()
+
+    def get_average(self, profits: np.array) -> dict:
+        """
+        Calculate the average of the profits.
+
+        Parameters:
+        - profits: np.ndarray
+            Array of profit values.
+
+        Returns:
+        - float:
+            The average profit value.
+        """
+
+        return profits.mean()
+
+    # def get_pmf_plot(
+    #     self, fruits: np.array, pmf: np.array, profits: np.array, percent: bool) -> go.Figure:
+    #     """
+    #     Generate a plot of the probability mass function (PMF) for the total fruit count.
+
+    #     Parameters:
+    #     - fruits: np.ndarray
+    #         Total fruit count values (x-axis of PMF); returned from compute_profit_probability.
+    #     - pmf: np.ndarray
+    #         Probability mass function values for each total fruit count; returned from
+    #         compute_profit_probability.
+    #     - profits: np.ndarray
+    #         Corresponding profit values; returned from compute_profit_probability.
+    #     - percent: bool
+    #         If True, display the PMF as percentages instead of probabilities.
+
+    #     Returns:
+    #     - go.Figure:
+    #         A Plotly figure object containing the PMF plot.
+    #     """
+
+    #     # If percent is True, convert PMF to percentages
+    #     if percent:
+    #         pmf = pmf * 100
+    #         label = "Percentage"
+    #     else:
+    #         label = "Probability"
+
+    #     # Compute the minimum number of fruits needed to break even
+    #     break_even_fruit_count = np.min(fruits[profits > 0])
+
+    #     # Create Plotly bar chart
+    #     fig = go.Figure()
+
+    #     # Add bars for pmf, and label as percentage or probability
+    #     if percent:
+    #         hovertemplate = "%{y}% to get %{x} fruit<extra></extra>"
+    #     else:
+    #         hovertemplate = "%{y} probability to get %{x} fruit<extra></extra>"
+    #     fig.add_trace(
+    #         go.Bar(
+    #             x=fruits,
+    #             y=pmf,
+    #             marker_color="royalblue",
+    #             showlegend=False,
+    #             hovertemplate=hovertemplate,
+    #         )
+    #     )
+
+    #     # Vertical line at break-even point
+    #     # Densify y values so you can see label at any y value on the vertical line
+    #     dense_y = np.linspace(0, max(pmf), 200)
+    #     dense_x = [break_even_fruit_count] * len(dense_y)
+    #     fig.add_trace(
+    #         go.Scatter(
+    #             x=dense_x,
+    #             y=dense_y,
+    #             mode="lines",
+    #             name="Profit Threshold",
+    #             line=dict(color="red", dash="dash"),
+    #             hovertemplate="Profit at %{x} fruit<extra></extra>",
+    #         )
+    #     )
+
+    #     # Reference parent directory to find font file
+    #     repo_root = Path(__file__).resolve().parent.parent
+    #     font_path = repo_root / "app/assets/Kalyant Demo-Bold.otf"
+
+    #     # Read the font file and encode it in base64
+    #     font_base64 = base64.b64encode(font_path.read_bytes()).decode("utf-8")
+    #     # Create CSS for the font
+    #     font_css = f"""
+    #                 <style>
+    #                 @font-face {{
+    #                     font-family: 'KalyantBold';
+    #                     src: url(data:font/opentype;base64,{font_base64}) format('opentype');
+    #                 }}
+    #                 </style>
+    #                 """
+
+    #     # Update layout with custom font and styling
+    #     if percent:
+    #         label_title = f"Percentages of All Possible Fruit Counts from {self.n_trees} Gift Tree(s)"
+    #     else:
+    #         label_title = f"Probabilities of All Possible Fruit Counts from {self.n_trees} Gift Tree(s)"
+    #     fig.update_layout(
+    #         title=label_title,
+    #         xaxis_title="Total Fruit Count",
+    #         yaxis_title=label,
+    #         showlegend=True,
+    #         font=dict(family="KalyantBold", size=18, color="white"),
+    #         paper_bgcolor="rgba(0,0,0,0)",
+    #         plot_bgcolor="rgba(0,0,0,0)",
+    #     )
+
+    #     # Convert to HTML
+    #     html = font_css + fig.to_html(include_plotlyjs="cdn")
+
+    #     return html
+
+
+n_trees = 1
+cost_per_tree = 1900000
+
+gt = gift_tree(n_trees=n_trees, cost_per_tree=cost_per_tree)
+jsProfitProb, jsFruits, jsPMF, jsProfits = gt.compute_profit_probability()
+
+jsMinProfit = gt.get_min(jsProfits)
+jsAvgProfit = gt.get_average(jsProfits)
+jsMaxProfit = gt.get_max(jsProfits)
+
+jsCalculations = {
+    "probability": jsProfitProb,
+    "profit": {
+        "min": jsMinProfit,
+        "avg": jsAvgProfit,
+        "max": jsMaxProfit,
+    },
+}
